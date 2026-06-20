@@ -3,4 +3,3 @@ librosa
 numpy
 scipy
 matplotlib
-os
