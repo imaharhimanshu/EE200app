@@ -1,8 +1,6 @@
-import streamlit as st
-import librosa
-import librosa.display
-import numpy as np
-import scipy.ndimage as ndimage
-import matplotlib.pyplot as plt
-import glob
-import os
+streamlit
+librosa
+numpy
+scipy
+matplotlib
+os
