@@ -1,7 +1,6 @@
-streamlit
-librosa
-numpy
-scipy
-matplotlib
-pandas
-pickle5
+librosa==0.10.1
+numpy==1.26.4
+scipy==1.13.0
+matplotlib==3.8.4
+pandas==2.2.2
+gdown==5.2.0
