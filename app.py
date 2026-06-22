@@ -277,12 +277,13 @@ if mode == "🎵 Single Clip":
         help="Upload a clip (even a few seconds works)"
     )
 
-    if uploaded is not None:
-        st.audio(uploaded)
+   if uploaded is not None:
+        file_bytes = uploaded.getvalue()
+        st.audio(file_bytes)
 
         suffix = os.path.splitext(uploaded.name)[-1] or ".mp3"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(uploaded.read())
+            tmp.write(file_bytes)
             tmp_path = tmp.name
 
         with st.spinner("🔍 Fingerprinting and matching..."):
@@ -412,7 +413,7 @@ elif mode == "📂 Batch Mode":
                 suffix = os.path.splitext(f.name)[-1] or ".mp3"
 
                 with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                    tmp.write(f.read())
+                    tmp.write(f.getvalue())
                     tmp_path = tmp.name
 
                 try:
