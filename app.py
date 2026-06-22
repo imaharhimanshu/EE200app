@@ -103,32 +103,24 @@ if mode == "Single Clip Recognition":
 
     if uploaded_file:
 
-file_extension = Path(uploaded_file.name).suffix.lower()
+        file_extension = Path(uploaded_file.name).suffix.lower()
 
-with tempfile.NamedTemporaryFile(
-    delete=False,
-    suffix=file_extension
-) as tmp:
-
-    tmp.write(uploaded_file.read())
-    temp_path = tmp.name
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=file_extension
+        ) as tmp:
 
             tmp.write(uploaded_file.read())
-
             temp_path = tmp.name
 
-        query_fp = fingerprint_audio(
-            temp_path
-        )
+        query_fp = fingerprint_audio(temp_path)
 
         song_name, confidence, histogram = identify_song(
             query_fp["hashes"],
             database
         )
 
-        st.success(
-            f"Matched Song: {song_name}"
-        )
+        st.success(f"Matched Song: {song_name}")
 
         st.info(
             f"Confidence: {confidence:.2f}%"
