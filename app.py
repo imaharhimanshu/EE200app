@@ -277,7 +277,13 @@ if mode == "🎵 Single Clip":
         help="Upload a clip (even a few seconds works)"
     )
 
-   if uploaded is not None:
+uploaded = st.file_uploader(
+        "Drop your query clip here",
+        type=["mp3", "wav", "flac"],
+        help="Upload a clip (even a few seconds works)"
+    )
+
+    if uploaded is not None:
         file_bytes = uploaded.getvalue()
         st.audio(file_bytes)
 
@@ -285,7 +291,7 @@ if mode == "🎵 Single Clip":
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(file_bytes)
             tmp_path = tmp.name
-
+            
         with st.spinner("🔍 Fingerprinting and matching..."):
             try:
                 best_song, S_db, p_times, p_freqs, all_scores, best_offsets = \
