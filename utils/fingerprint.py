@@ -1,150 +1,171 @@
-import librosa
-import librosa.display
+# utils/fingerprint.py
+
 import numpy as np
+import librosa
 import scipy.ndimage as ndimage
-import pickle
-import os
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
-# ── Locked parameters — used for BOTH building the DB and querying ──
-N_FFT          = 2048
-HOP_LENGTH     = 512    # 512
-NEIGHBORHOOD   = (20, 20)
-PERCENTILE     = 75
-FAN            = 5
-MAX_DT         = 2.0
-SAMPLE_RATE    = 22050          # fixed for everything — indexing AND querying
 
-_db_cache = None
+# ==========================================
+# Spectrogram Generation
+# ==========================================
 
-def load_db(db_path="database/song_db.pkl"):
-    global _db_cache
-    if _db_cache is None:
-        with open(db_path, 'rb') as f:
-            try:
-                _db_cache = pickle.load(f)
-            except Exception:
-                f.seek(0)
-                _db_cache = pickle.load(f, encoding='latin1')
-    return _db_cache
+def generate_spectrogram(
+    audio_path,
+    n_fft=2048,
+    hop_length=512
+):
+    """
+    Load audio and compute spectrogram.
+    """
 
-def load_audio(path, duration=None):
-    y, sr = librosa.load(path, sr=SAMPLE_RATE, mono=True, duration=duration)
-    return y, sr
+    y, sr = librosa.load(audio_path, mono=True)
 
-def compute_spectrogram(y, sr):
-    D    = librosa.stft(y, n_fft=N_FFT, hop_length=HOP_LENGTH)
-    S_db = librosa.amplitude_to_db(np.abs(D), ref=np.max)
-    return S_db
+    D = librosa.stft(
+        y,
+        n_fft=n_fft,
+        hop_length=hop_length
+    )
 
-def get_peaks(S_db, sr):
-    local_max   = ndimage.maximum_filter(S_db, size=NEIGHBORHOOD) == S_db
-    loud_enough = S_db > np.percentile(S_db, PERCENTILE)
-    peak_fi, peak_ti = np.where(local_max & loud_enough)
-    times = librosa.frames_to_time(peak_ti, sr=sr, hop_length=HOP_LENGTH)
-    freqs = librosa.fft_frequencies(sr=sr, n_fft=N_FFT)[peak_fi]
-    return times, freqs
+    S = np.abs(D)
 
-def build_hashes(peak_times, peak_freqs):
-    peaks_sorted = sorted(zip(peak_times, peak_freqs), key=lambda x: x[0])
+    S_db = librosa.amplitude_to_db(
+        S,
+        ref=np.max
+    )
+
+    return y, sr, S_db
+
+
+# ==========================================
+# Peak Detection (Constellation Map)
+# ==========================================
+
+def find_peaks(
+    S_db,
+    sr,
+    n_fft=2048,
+    hop_length=512,
+    neighborhood_size=(20, 20),
+    percentile_threshold=75
+):
+    """
+    Extract strong local maxima from spectrogram.
+    """
+
+    local_max = (
+        ndimage.maximum_filter(
+            S_db,
+            size=neighborhood_size
+        ) == S_db
+    )
+
+    threshold = np.percentile(
+        S_db,
+        percentile_threshold
+    )
+
+    loud_enough = S_db > threshold
+
+    peaks = local_max & loud_enough
+
+    freq_idx, time_idx = np.where(peaks)
+
+    peak_times = librosa.frames_to_time(
+        time_idx,
+        sr=sr,
+        hop_length=hop_length
+    )
+
+    peak_freqs = librosa.fft_frequencies(
+        sr=sr,
+        n_fft=n_fft
+    )[freq_idx]
+
+    return peak_times, peak_freqs
+
+
+# ==========================================
+# Hash Generation
+# ==========================================
+
+def generate_hashes(
+    peak_times,
+    peak_freqs,
+    target_zone_size=5
+):
+    """
+    Create paired fingerprints.
+
+    Hash format:
+    (freq1, freq2, delta_time)
+    """
+
     hashes = []
-    for i, (t1, f1) in enumerate(peaks_sorted):
-        for j in range(1, FAN + 1):
-            if i + j < len(peaks_sorted):
-                t2, f2 = peaks_sorted[i + j]
-                dt = round(t2 - t1, 3)
-                if 0 < dt <= MAX_DT:
-                    hashes.append(((round(f1, 1), round(f2, 1), dt), t1))
+
+    for i in range(len(peak_times)):
+
+        for j in range(
+            i + 1,
+            min(
+                i + target_zone_size,
+                len(peak_times)
+            )
+        ):
+
+            f1 = int(peak_freqs[i])
+            f2 = int(peak_freqs[j])
+
+            delta_t = round(
+                peak_times[j] - peak_times[i],
+                2
+            )
+
+            if delta_t <= 0:
+                continue
+
+            hash_key = (
+                f1,
+                f2,
+                delta_t
+            )
+
+            hashes.append(
+                (
+                    hash_key,
+                    peak_times[i]
+                )
+            )
+
     return hashes
 
-def fingerprint_file(path, duration=None):
-    y, sr = load_audio(path, duration=duration)
-    S_db = compute_spectrogram(y, sr)
-    p_times, p_freqs = get_peaks(S_db, sr)
-    hashes = build_hashes(p_times, p_freqs)
-    return hashes, S_db, p_times, p_freqs
 
-def build_database(songs_folder, db_path="database/song_db.pkl"):
-    db = {}
-    songs = [f for f in os.listdir(songs_folder)
-             if f.lower().endswith(('.mp3', '.wav', '.flac'))]
-    print(f"Found {len(songs)} songs")
-    for fname in songs:
-        fpath = os.path.join(songs_folder, fname)
-        song_name = os.path.splitext(fname)[0]
-        hashes, _, _, _ = fingerprint_file(fpath, duration=None)
-        for hk, t in hashes:
-            db.setdefault(hk, []).append((song_name, t))
-        print(f"  {song_name}: {len(hashes)} hashes")
-    with open(db_path, 'wb') as f:
-        pickle.dump(db, f, protocol=2)
-    print(f"Saved {len(db)} unique hash keys to {db_path}")
-    return db
+# ==========================================
+# Full Fingerprint Pipeline
+# ==========================================
 
-def plot_spectrogram(S_db, sr, ylim=3500, xlim=None):
+def fingerprint_audio(audio_path):
     """
-    Spectrogram plot in the same visual style as the reference snippet:
-    magma colormap, dB colorbar, frequency-limited y-axis.
-    Returns a matplotlib Figure (caller is responsible for st.pyplot / plt.close).
+    Complete fingerprint extraction.
     """
-    fig, ax = plt.subplots(figsize=(10, 6))
-    img = librosa.display.specshow(
-        S_db, sr=sr, hop_length=HOP_LENGTH,
-        x_axis='time', y_axis='hz', cmap='magma', ax=ax
+
+    y, sr, S_db = generate_spectrogram(
+        audio_path
     )
-    ax.set_ylim(0, ylim)
-    if xlim is not None:
-        ax.set_xlim(0, xlim)
-    ax.set_title('Spectrogram')
-    fig.colorbar(img, ax=ax, format='%+2.0f dB')
-    fig.tight_layout()
-    return fig
 
-def plot_constellation(S_db, p_times, p_freqs, sr, ylim=3500, xlim=None):
-    """
-    Spectrogram + constellation peaks overlaid, in the same visual style as
-    the reference snippet: magma background, cyan unfilled circle markers.
-    Returns a matplotlib Figure (caller is responsible for st.pyplot / plt.close).
-    """
-    fig, ax = plt.subplots(figsize=(10, 6))
-    img = librosa.display.specshow(
-        S_db, sr=sr, hop_length=HOP_LENGTH,
-        x_axis='time', y_axis='hz', cmap='magma', ax=ax
+    peak_times, peak_freqs = find_peaks(
+        S_db,
+        sr
     )
-    ax.scatter(
-        p_times, p_freqs,
-        facecolors='none', edgecolors='cyan', s=30,
-        label='Constellation Peaks'
+
+    hashes = generate_hashes(
+        peak_times,
+        peak_freqs
     )
-    ax.set_ylim(0, ylim)
-    if xlim is not None:
-        ax.set_xlim(0, xlim)
-    ax.set_title('Spectrogram with Constellation Peaks')
-    fig.colorbar(img, ax=ax, format='%+2.0f dB')
-    ax.legend(loc='upper right')
-    fig.tight_layout()
-    return fig
 
-def identify(query_path, db_path="database/song_db.pkl"):
-    db = load_db(db_path)
-    hashes, S_db, p_times, p_freqs = fingerprint_file(query_path, duration=None)
-
-    offset_tallies = {}
-    for hk, q_time in hashes:
-        if hk in db:
-            for song_name, db_time in db[hk]:
-                offset = round(db_time - q_time, 2)
-                offset_tallies.setdefault(song_name, {})
-                offset_tallies[song_name][offset] = offset_tallies[song_name].get(offset, 0) + 1
-
-    best_song, best_count = "Unknown", 0
-    all_scores = {}
-    for song, offsets in offset_tallies.items():
-        top = max(offsets.values())
-        all_scores[song] = top
-        if top > best_count:
-            best_count, best_song = top, song
-
-    return best_song, S_db, p_times, p_freqs, all_scores, offset_tallies.get(best_song, {})
+    return {
+        "spectrogram": S_db,
+        "sample_rate": sr,
+        "peak_times": peak_times,
+        "peak_freqs": peak_freqs,
+        "hashes": hashes
+    }
