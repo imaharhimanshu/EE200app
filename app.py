@@ -103,10 +103,15 @@ if mode == "Single Clip Recognition":
 
     if uploaded_file:
 
-        with tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".wav"
-        ) as tmp:
+file_extension = Path(uploaded_file.name).suffix.lower()
+
+with tempfile.NamedTemporaryFile(
+    delete=False,
+    suffix=file_extension
+) as tmp:
+
+    tmp.write(uploaded_file.read())
+    temp_path = tmp.name
 
             tmp.write(uploaded_file.read())
 
