@@ -277,13 +277,7 @@ if mode == "🎵 Single Clip":
         help="Upload a clip (even a few seconds works)"
     )
 
-uploaded = st.file_uploader(
-        "Drop your query clip here",
-        type=["mp3", "wav", "flac"],
-        help="Upload a clip (even a few seconds works)"
-    )
-
-if uploaded is not None:
+    if uploaded is not None:
         file_bytes = uploaded.getvalue()
         st.audio(file_bytes)
 
