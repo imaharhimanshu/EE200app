@@ -283,7 +283,7 @@ uploaded = st.file_uploader(
         help="Upload a clip (even a few seconds works)"
     )
 
-    if uploaded is not None:
+if uploaded is not None:
         file_bytes = uploaded.getvalue()
         st.audio(file_bytes)
 
