@@ -101,9 +101,17 @@ if mode == "Single Clip":
         st.audio(uploaded)
 
         with st.spinner("Analysing..."):
-            (matched_song, best_per_song, S_db, times, freqs,
-             hop_length, sr, peak_times, peak_freqs,
-             total_query_hashes, matched_hash_counts) = identify_clip(tmp_path, database)
+            try:
+                (matched_song, best_per_song, S_db, times, freqs,
+                 hop_length, sr, peak_times, peak_freqs,
+                 total_query_hashes, matched_hash_counts) = identify_clip(tmp_path, database)
+            except Exception as e:
+                st.error(f"Error processing file: {e}")
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+                st.stop()
+
+        os.unlink(tmp_path)
 
         os.unlink(tmp_path)
 
