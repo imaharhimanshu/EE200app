@@ -107,8 +107,9 @@ def identify_clip(query_path, database):
     matched_hash_counts = {song: 0 for song in song_list}
     for key, query_entries in query_hashes.items():
         if key in db_hashes:
-            for (db_song, db_t1) in db_hashes[key]:
-                matched_hash_counts[db_song] += len(query_entries)
+            songs_hit = set(db_song for (db_song, db_t1) in db_hashes[key])
+            for db_song in songs_hit:
+                matched_hash_counts[db_song] += 1
 
     return matched_song, best_per_song, S_db, times, freqs, \
            hop_length, sr, peak_times, peak_freqs, \
