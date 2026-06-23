@@ -5,4 +5,3 @@ scipy
 matplotlib
 pandas
 soundfile
-huggingface_hub
