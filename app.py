@@ -73,15 +73,18 @@ def draw_constellation(S_db, sr, hop_length, peak_times, peak_freqs):
     return fig
 
 def draw_histogram(best_per_song, matched_song):
-    fig, ax = plt.subplots(figsize=(10, 4))
-    songs = list(best_per_song.keys())
-    scores = [best_per_song[s] for s in songs]
+    
+    sorted_songs = sorted(best_per_song.items(), key=lambda x: x[1], reverse=True)[:20]
+    songs = [s for s, _ in sorted_songs]
+    scores = [v for _, v in sorted_songs]
     colors = ['#00cc66' if s == matched_song else '#4466ff' for s in songs]
+
+    fig, ax = plt.subplots(figsize=(10, 4))
     ax.bar(songs, scores, color=colors)
-    ax.set_title("Offset Histogram - Match Scores per Song")
+    ax.set_title("Offset Histogram - Top 20 Match Scores")
     ax.set_ylabel("Peak Offset Count")
     ax.set_xlabel("Song")
-    plt.xticks(rotation=90, ha='right', fontsize=7)
+    plt.xticks(rotation=45, ha='right', fontsize=8)
     plt.tight_layout()
     return fig
 
@@ -111,9 +114,8 @@ if mode == "Single Clip":
                     os.unlink(tmp_path)
                 st.stop()
 
-        os.unlink(tmp_path)
-
-        os.unlink(tmp_path)
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
         # Result
         st.success(f"Matched Song: **{matched_song}**")
