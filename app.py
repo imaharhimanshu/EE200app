@@ -1,6 +1,4 @@
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
+import os
 import streamlit as st
 import matplotlib.pyplot as plt
 import librosa.display
@@ -19,7 +17,7 @@ st.set_page_config(
     layout="wide"
 )
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'database.pkl')
+DB_PATH = "database.pkl"
 
 @st.cache_resource
 def get_database():
